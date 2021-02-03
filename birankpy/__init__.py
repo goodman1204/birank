@@ -42,6 +42,76 @@ def pagerank(adj, d=0.85, max_iter=200, tol=1.0e-4, verbose=False):
 
     return x
 
+def birank_new(Wg,Wh,alpha=0.85, beta=0.85, gamma=0.85, max_iter=200, tol=1.0e-4, verbose=False):
+    """
+    Calculate the PageRank of bipartite networks directly.
+    See paper https://ieeexplore.ieee.org/abstract/document/7572089/
+    for details.
+    Different normalizer yields very different results.
+    More studies are needed for deciding the right one.
+
+    Input:
+        W::scipy's sparse matrix:Adjacency matrix of the bipartite network D*P
+        normalizer::string:Choose which normalizer to use, see the paper for details
+        alpha, beta::float:Damping factors for the rows and columns
+        max_iter::int:Maximum iteration times
+        tol::float:Error tolerance to check convergence
+        verbose::boolean:If print iteration information
+
+    Output:
+         d, p::numpy.ndarray:The BiRank for rows and columns
+    """
+
+    Wg = Wg.astype('float', copy=False) # in shape U*T, U is the user number, T is the tweet number
+    Wh = Wh.astype('float', copy=False) # in shape U*U, U is the user number
+    WgT = Wg.T
+    WhT = Wh.T
+
+    Kut = scipy.array(Wg.sum(axis=1)).flatten() # the degree list for user nodes from user-tweet bipartite network
+    Ktt = scipy.array(Wg.sum(axis=0)).flatten() # the degree list for tweet nodes from user-tweet bipartite network
+    Kuu = scipy.array(Wh.sum(axis=0)).flatten() # the degree list for user nodes from user-user network
+    # avoid divided by zero issue
+    Kut[np.where(Kut==0)] += 1
+    Ktt[np.where(Ktt==0)] += 1
+    Kuu[np.where(Kuu==0)] += 1
+
+    Kut_ = spa.diags(1/Kut)
+    Ktt_ = spa.diags(1/Ktt)
+    Kuu_ = spa.diags(1/Kuu)
+
+
+    Kut_bi = spa.diags(1/scipy.sqrt(Kut_)) # in shape U*U
+    Ktt_bi = spa.diags(1/scipy.sqrt(Ktt_)) # in shape T*T
+    Kuu_bi = spa.diags(1/scipy.sqrt(Kuu_)) # in shape U*U
+
+    Sg = Kut_bi.dot(Wg).dot(Ktt_bi)
+    SgT = Sg.T
+
+    Sh = Kuu_bi.dot(Wh).dot(Kuu_bi)
+
+    d0 = np.repeat(1 / Kut_.shape[0], Kut_.shape[0]) # d0 is for user inital ranking value list
+    d_last = d0.copy()
+    p0 = np.repeat(1 / Ktt_.shape[0], Ktt_.shape[0])  #p0 is the tweet initial ranking value list
+    p_last = p0.copy()
+
+    for i in range(max_iter):
+        p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
+        d = beta*Sg*p + gamma * (Sh.dot(d_last)) + (1-beta-gamma) * d0
+
+        err_p = np.absolute(p - p_last).sum()
+        err_d = np.absolute(d - d_last).sum()
+        if verbose:
+            print(
+                "Iteration : {}; top error: {}; bottom error: {}".format(
+                    i, err_d, err_p
+                )
+            )
+        if err_p < tol and err_d < tol:
+            break
+        d_last = d
+        p_last = p
+
+    return d, p
 
 def birank(W, normalizer='HITS',
     alpha=0.85, beta=0.85, max_iter=200, tol=1.0e-4, verbose=False):
