@@ -61,6 +61,7 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
     Output:
          d, p::numpy.ndarray:The BiRank for rows and columns
     """
+    print("Wg shape:",Wg.shape,"Wh shape:",Wg.shape)
 
     Wg = Wg.astype('float', copy=False) # in shape U*T, U is the user number, T is the tweet number
     Wh = Wh.astype('float', copy=False) # in shape U*U, U is the user number
@@ -233,10 +234,7 @@ class BipartiteNetwork:
     def __init__(self):
         pass
 
-    def load_edgelist(
-        self, edgelist_path, top_col, bottom_col,
-        weight_col='None', sep=','
-    ):
+    def load_edgelist(self, edgelist_path, top_col, bottom_col,weight_col='None', sep=','):
         """
         Method to load the edgelist.
 
@@ -292,6 +290,89 @@ class BipartiteNetwork:
         self._index_nodes()
         self._generate_adj()
 
+    def set_edgelist_two_types(self, df,df_2, top_col, bottom_col, weight_col=None,weight_col_2=None):
+        """
+        Method to set the edgelist.
+
+        Input:
+            df::pandas.DataFrame: the edgelist with at least two columns
+            top_col::string: column of the edgelist dataframe for top nodes
+            bottom_col::string: column of the edgelist dataframe for bottom nodes
+            weight_col::string: column of the edgelist dataframe for edge weights
+
+        The edgelist should be represented by a dataframe.
+        The dataframe eeds at least two columns for the top nodes and
+        bottom nodes. An optional column can carry the edge weight.
+        You need to specify the columns in the method parameters.
+        """
+        self.df = df
+        self.df_2 = df_2 # for user to user connection
+        self.top_col = top_col
+        self.bottom_col = bottom_col
+        self.weight_col = weight_col
+        self.weight_col_2 = weight_col_2 # for user to user weight
+
+        self._index_nodes_new()
+        self._generate_adj_new()
+
+    def _index_nodes_new(self):
+        """
+        Representing the network with adjacency matrix requires indexing the top
+        and bottom nodes first
+        """
+        self.top_ids = pd.DataFrame(
+            self.df[self.top_col].unique(),
+            columns=[self.top_col]
+        ).reset_index()
+        self.top_ids = self.top_ids.rename(columns={'index': 'top_index'})
+
+
+        self.bottom_ids = pd.DataFrame(
+            self.df[self.bottom_col].unique(),
+            columns=[self.bottom_col]
+        ).reset_index()
+        self.bottom_ids = self.bottom_ids.rename(columns={'index': 'bottom_index'})
+
+        self.df = self.df.merge(self.top_ids, on=self.top_col)
+        self.df = self.df.merge(self.bottom_ids, on=self.bottom_col)
+
+        print("df_2 second column name:",self.df_2.columns[1])
+        self.df_2 = self.df_2.merge(self.top_ids, on=self.top_col)
+
+        user_newid = dict(zip(self.top_ids[self.top_col],self.top_ids['top_index']))
+
+        bottom_index_for_uu = [user_newid[t] for t in self.df_2[self.df_2.columns[1]]]
+        self.df_2['bottom_index']=bottom_index_for_uu
+
+
+    def _generate_adj_new(self):
+        """
+        Generating the adjacency matrix for the birparite network.
+        The matrix has dimension: D * P where D is the number of top nodes
+        and P is the number of bottom nodes
+        """
+        if self.weight_col is None:
+            # set weight to 1 if weight column is not present
+            weight = np.ones(len(self.df))
+        else:
+            weight = self.df[self.weight_col]
+        self.W = spa.coo_matrix(
+            (
+                weight,
+                (self.df['top_index'].values, self.df['bottom_index'].values)
+            )
+        )
+        if self.weight_col_2 is None:
+            # set weight to 1 if weight column is not present
+            weight_2 = np.ones(len(self.df_2))
+        else:
+            weight_2 = self.df_2[self.weight_col_2]
+        self.W_2 = spa.coo_matrix(
+            (
+                weight_2,
+                (self.df_2['top_index'].values, self.df_2['bottom_index'].values)
+            )
+        )
     def _index_nodes(self):
         """
         Representing the network with adjacency matrix requires indexing the top
@@ -376,6 +457,20 @@ class BipartiteNetwork:
         bottom_df = bottom_df.to_frame(name='degree').reset_index()
         return top_df, bottom_df
 
+    def generate_birank_new(self, **kwargs):
+        """
+        This method performs BiRank algorithm on the bipartite network and
+        returns the ranking values for both the top nodes and bottom nodes.
+        """
+        d, p = birank_new(self.W,self.W_2, **kwargs)
+        top_df = self.top_ids.copy()
+        bottom_df = self.bottom_ids.copy()
+        top_df[self.top_col + '_birank'] = d
+        bottom_df[self.bottom_col + '_birank'] = p
+        return (
+            top_df[[self.top_col, self.top_col + '_birank']],
+            bottom_df[[self.bottom_col, self.bottom_col + '_birank']]
+        )
     def generate_birank(self, **kwargs):
         """
         This method performs BiRank algorithm on the bipartite network and
