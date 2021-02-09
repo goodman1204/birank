@@ -61,7 +61,7 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
     Output:
          d, p::numpy.ndarray:The BiRank for rows and columns
     """
-    print("Wg shape:",Wg.shape,"Wh shape:",Wg.shape)
+    print("Wg shape:",Wg.shape,"Wh shape:",Wh.shape)
 
     Wg = Wg.astype('float', copy=False) # in shape U*T, U is the user number, T is the tweet number
     Wh = Wh.astype('float', copy=False) # in shape U*U, U is the user number
@@ -81,8 +81,11 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
     # Kuu_ = spa.diags(1/Kuu)
 
 
-    Kut_bi = spa.diags(1/scipy.sqrt(Kut_)) # in shape U*U
-    Ktt_bi = spa.diags(1/scipy.sqrt(Ktt_)) # in shape T*T
+    # print("Kut_\n",'shape\n',Kut_.shape,Kut_)
+    # print('negtive value:',np.any(Kut_<=0))
+
+    Kut_bi = spa.diags(1/scipy.sqrt(Kut)) # in shape U*U
+    Ktt_bi = spa.diags(1/scipy.sqrt(Ktt)) # in shape T*T
     # Kuu_bi = spa.diags(1/scipy.sqrt(Kuu_)) # in shape U*U
 
     Sg = Kut_bi.dot(Wg).dot(Ktt_bi)
@@ -326,6 +329,8 @@ class BipartiteNetwork:
         ).reset_index()
         self.top_ids = self.top_ids.rename(columns={'index': 'top_index'})
 
+        user_number = len(self.df[self.top_col].unique())
+        print("user number",user_number)
 
         self.bottom_ids = pd.DataFrame(
             self.df[self.bottom_col].unique(),
@@ -336,13 +341,16 @@ class BipartiteNetwork:
         self.df = self.df.merge(self.top_ids, on=self.top_col)
         self.df = self.df.merge(self.bottom_ids, on=self.bottom_col)
 
-        print("df_2 second column name:",self.df_2.columns[1])
         self.df_2 = self.df_2.merge(self.top_ids, on=self.top_col)
 
         user_newid = dict(zip(self.top_ids[self.top_col],self.top_ids['top_index']))
 
-        bottom_index_for_uu = [user_newid[t] for t in self.df_2[self.df_2.columns[1]]]
+        bottom_index_for_uu = [user_newid[t] for t in self.df_2[self.df_2.columns[1]]] # creat a list of same user ids from the top_ids
+
         self.df_2['bottom_index']=bottom_index_for_uu
+        self.df_2=self.df_2.append(pd.DataFrame([[user_number,user_number,user_number-1,user_number-1]],columns=['user','to_user','top_index','bottom_index'])) # append a fake row to make sure that Wh shape in U*U
+        # print(self.df_2)
+        print("df_2 column name after reindex:",self.df_2.columns)
 
 
     def _generate_adj_new(self):

@@ -41,8 +41,9 @@ if __name__=='__main__':
         weight_col_2=None
     )
 
-    char_birank_df, _ = bn.generate_birank_new()
-    char_birank_df.sort_values(by='character_birank', ascending=False).head()
+    user_birank_df, tweet_birank_df = bn.generate_birank_new()
+    print(user_birank_df.sort_values(by=bn.top_col+'_birank', ascending=False))
+    print(tweet_birank_df.sort_values(by=bn.bottom_col+'_birank', ascending=False))
     # char_birank_df, _ = bn.generate_birank(normalizer='CoHITS')
     # char_birank_df.sort_values(by='character_birank', ascending=False).head()
     # un = bn.unipartite_projection(on='character')
