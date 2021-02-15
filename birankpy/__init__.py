@@ -42,7 +42,7 @@ def pagerank(adj, d=0.85, max_iter=200, tol=1.0e-4, verbose=False):
 
     return x
 
-def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, verbose=False):
+def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, verbose=True):
     """
     Calculate the PageRank of bipartite networks directly.
     See paper https://ieeexplore.ieee.org/abstract/document/7572089/
@@ -74,6 +74,7 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
     # avoid divided by zero issue
     Kut[np.where(Kut==0)] += 1
     Ktt[np.where(Ktt==0)] += 1
+    Kuu[np.where(Kuu==0)] += 1
     # Kuu[np.where(Kuu==0)] += 1
 
     Kut_ = spa.diags(Kut)
@@ -89,15 +90,19 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
     # Kuu_bi = spa.diags(1/scipy.sqrt(Kuu_)) # in shape U*U
 
     Sg = Kut_bi.dot(Wg).dot(Ktt_bi)
+    np.save('Sg.npy',Sg)
     SgT = Sg.T
 
     Sh = Kut_bi.dot(Wh).dot(Kut_bi)
+    np.save('Sh.npy',Sh)
 
     d0 = np.repeat(1 / Kut_.shape[0], Kut_.shape[0]) # d0 is for user inital ranking value list
     d_last = d0.copy()
     p0 = np.repeat(1 / Ktt_.shape[0], Ktt_.shape[0])  #p0 is the tweet initial ranking value list
     p_last = p0.copy()
 
+    print("p shape:",p_last.shape,"d shape:",d_last.shape)
+    print('initial value \n p[0:10]',p_last[0:10],'\n d[0:10]',d_last[0:10])
     for i in range(max_iter):
         p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
         d = beta*Sg*p + gamma * (Sh.dot(d_last)) + (1-beta-gamma) * d0
@@ -105,6 +110,8 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
         err_p = np.absolute(p - p_last).sum()
         err_d = np.absolute(d - d_last).sum()
         if verbose:
+            print('p[0:10]',p[0:10],'\n d[0:10]',d[0:10])
+            print('p0[0:10]',p0[0:10],'\n d0[0:10]',d0[0:10])
             print(
                 "Iteration : {}; top error: {}; bottom error: {}".format(
                     i, err_d, err_p
