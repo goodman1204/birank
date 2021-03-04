@@ -107,6 +107,10 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
         p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
         d = beta*Sg*p + gamma * (Sh.dot(d_last)) + (1-beta-gamma) * d0
 
+        # normalize p and d after each update
+        p = p / p.sum()
+        d = d / d.sum()
+
         err_p = np.absolute(p - p_last).sum()
         err_d = np.absolute(d - d_last).sum()
         if verbose:
