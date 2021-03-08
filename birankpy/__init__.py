@@ -5,7 +5,7 @@ import scipy
 import scipy.sparse as spa
 
 
-def pagerank(adj, d=0.85, max_iter=200, tol=1.0e-4, verbose=False):
+def pagerank(adj, d=0.85, max_iter=500, tol=1.0e-4, verbose=True):
     """
     Return the PageRank of the nodes in a graph using power iteration.
     This funciton takes the sparse matrix as input directly, avoiding the overheads
@@ -42,7 +42,7 @@ def pagerank(adj, d=0.85, max_iter=200, tol=1.0e-4, verbose=False):
 
     return x
 
-def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, verbose=True):
+def birank_new(Wg,Wh,alpha=0.85, beta=0.3, gamma=0.3, max_iter=500, tol=1.0e-5, verbose=True):
     """
     Calculate the PageRank of bipartite networks directly.
     See paper https://ieeexplore.ieee.org/abstract/document/7572089/
@@ -105,7 +105,7 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
     print('initial value \n p[0:10]',p_last[0:10],'\n d[0:10]',d_last[0:10])
     for i in range(max_iter):
         p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
-        d = beta*Sg*p + gamma * (Sh.dot(d_last)) + (1-beta-gamma) * d0
+        d = beta*Sg*p_last + gamma * (Sh.dot(d_last)) + (1-beta-gamma) * d0
 
         # normalize p and d after each update
         p = p / p.sum()
@@ -114,8 +114,8 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
         err_p = np.absolute(p - p_last).sum()
         err_d = np.absolute(d - d_last).sum()
         if verbose:
-            print('p[0:10]',p[0:10],'\n d[0:10]',d[0:10])
-            print('p0[0:10]',p0[0:10],'\n d0[0:10]',d0[0:10])
+            # print('p[0:10]',p[0:10],'\n d[0:10]',d[0:10])
+            # print('p0[0:10]',p0[0:10],'\n d0[0:10]',d0[0:10])
             print(
                 "Iteration : {}; top error: {}; bottom error: {}".format(
                     i, err_d, err_p
@@ -129,7 +129,7 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.5, gamma=0.5, max_iter=200, tol=1.0e-4, 
     return d, p
 
 def birank(W, normalizer='HITS',
-    alpha=0.85, beta=0.85, max_iter=200, tol=1.0e-4, verbose=False):
+    alpha=0.85, beta=0.85, max_iter=500, tol=1.0e-4, verbose=True):
     """
     Calculate the PageRank of bipartite networks directly.
     See paper https://ieeexplore.ieee.org/abstract/document/7572089/
