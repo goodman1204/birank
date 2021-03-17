@@ -1,0 +1,2 @@
+### command 
+python main.py Ranking/politifact_fake/politifact_fake.ut  Ranking/politifact_fake/politifact_fake.uu  proposed  Ranking/politifact_fake/politifact_fake.gt_user  Ranking/politifact_fake/politifact_fake.gt_tweet
