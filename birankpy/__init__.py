@@ -42,7 +42,7 @@ def pagerank(adj, d=0.85, max_iter=500, tol=1.0e-4, verbose=True):
 
     return x
 
-def birank_new(Wg,Wh,alpha=0.85, beta=0.3, gamma=0.3, max_iter=500, tol=1.0e-5, verbose=True):
+def birank_new(Wg,Wh,Wht=None, alpha=0.3,delta=0.3, beta=0.4, gamma=0.4, max_iter=500, tol=1.0e-5, verbose=True):
     """
     Calculate the PageRank of bipartite networks directly.
     See paper https://ieeexplore.ieee.org/abstract/document/7572089/
@@ -65,12 +65,23 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.3, gamma=0.3, max_iter=500, tol=1.0e-5, 
 
     Wg = Wg.astype('float', copy=False) # in shape U*T, U is the user number, T is the tweet number
     Wh = Wh.astype('float', copy=False) # in shape U*U, U is the user number
+
+    if Wht !=None:
+        Wht = Wht.astype('float',copy=False) # in shape T*T
+        WhtT = Wht.T
+        Kttt = scipy.array(Wht.sum(axis=0)).flatten() # the degree list for tweet nodes from tweet-tweet network
+        Kttt[np.where(Kttt==0)] += 1
+        Kttt_ = spa.diags(Kttt)
+        Kttt_bi = spa.diags(1/scipy.sqrt(Kttt)) # in shape T*T
+
     WgT = Wg.T
     WhT = Wh.T
 
     Kut = scipy.array(Wg.sum(axis=1)).flatten() # the degree list for user nodes from user-tweet bipartite network
     Ktt = scipy.array(Wg.sum(axis=0)).flatten() # the degree list for tweet nodes from user-tweet bipartite network
     Kuu = scipy.array(Wh.sum(axis=0)).flatten() # the degree list for user nodes from user-user network
+
+
     # avoid divided by zero issue
     Kut[np.where(Kut==0)] += 1
     Ktt[np.where(Ktt==0)] += 1
@@ -87,7 +98,8 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.3, gamma=0.3, max_iter=500, tol=1.0e-5, 
 
     Kut_bi = spa.diags(1/scipy.sqrt(Kut)) # in shape U*U
     Ktt_bi = spa.diags(1/scipy.sqrt(Ktt)) # in shape T*T
-    # Kuu_bi = spa.diags(1/scipy.sqrt(Kuu_)) # in shape U*U
+
+    Kuu_bi = spa.diags(1/scipy.sqrt(Kuu)) # in shape U*U
 
     Sg = Kut_bi.dot(Wg).dot(Ktt_bi)
     np.save('Sg.npy',Sg)
@@ -95,6 +107,11 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.3, gamma=0.3, max_iter=500, tol=1.0e-5, 
 
     Sh = Kut_bi.dot(Wh).dot(Kut_bi)
     np.save('Sh.npy',Sh)
+
+    if Wht !=None:
+        Sht = Kttt_bi.dot(Wht).dot(Kttt_bi)
+        ShtT = Sht.T
+
 
     d0 = np.repeat(1 / Kut_.shape[0], Kut_.shape[0]) # d0 is for user inital ranking value list
     d_last = d0.copy()
@@ -104,7 +121,12 @@ def birank_new(Wg,Wh,alpha=0.85, beta=0.3, gamma=0.3, max_iter=500, tol=1.0e-5, 
     print("p shape:",p_last.shape,"d shape:",d_last.shape)
     print('initial value \n p[0:10]',p_last[0:10],'\n d[0:10]',d_last[0:10])
     for i in range(max_iter):
-        p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
+
+        if Wht ==None:
+            p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
+        else:
+            p = alpha * (SgT.dot(d_last)) + delta*Sht*p_last + (1-alpha-delta) * p0
+
         d = beta*Sg*p_last + gamma * (Sh.dot(d_last)) + (1-beta-gamma) * d0
 
         # normalize p and d after each update
@@ -304,7 +326,7 @@ class BipartiteNetwork:
         self._index_nodes()
         self._generate_adj()
 
-    def set_edgelist_two_types(self, df,df_2, top_col, bottom_col, weight_col=None,weight_col_2=None):
+    def set_edgelist_two_types(self, df,df_2,df_3, top_col, bottom_col, weight_col=None,weight_col_2=None, weight_col_3=None):
         """
         Method to set the edgelist.
 
@@ -321,10 +343,12 @@ class BipartiteNetwork:
         """
         self.df = df
         self.df_2 = df_2 # for user to user connection
+        self.df_3 = df_3 # for
         self.top_col = top_col
         self.bottom_col = bottom_col
         self.weight_col = weight_col
         self.weight_col_2 = weight_col_2 # for user to user weight
+        self.weight_col_3 = weight_col_3
 
         self._index_nodes_new()
         self._generate_adj_new()
@@ -341,7 +365,9 @@ class BipartiteNetwork:
         self.top_ids = self.top_ids.rename(columns={'index': 'top_index'})
 
         user_number = len(self.df[self.top_col].unique())
+        tweet_number = len(self.df[self.bottom_col].unique())
         print("user number",user_number)
+        print("tweet number",tweet_number)
 
         self.bottom_ids = pd.DataFrame(
             self.df[self.bottom_col].unique(),
@@ -352,16 +378,60 @@ class BipartiteNetwork:
         self.df = self.df.merge(self.top_ids, on=self.top_col)
         self.df = self.df.merge(self.bottom_ids, on=self.bottom_col)
 
-        self.df_2 = self.df_2.merge(self.top_ids, on=self.top_col)
+
+        # self.df_2 = self.df_2.merge(self.top_ids, on=self.top_col)
+        # self.df_3 = self.df_3.merge(self.bottom_ids, on=self.bottom_col)
 
         user_newid = dict(zip(self.top_ids[self.top_col],self.top_ids['top_index']))
+        tweet_newid = dict(zip(self.bottom_ids[self.bottom_col],self.bottom_ids['bottom_index']))
 
+        top_index_for_uu = [user_newid[t] for t in self.df_2[self.df_2.columns[0]]] # creat a list of same user ids from the top_ids
         bottom_index_for_uu = [user_newid[t] for t in self.df_2[self.df_2.columns[1]]] # creat a list of same user ids from the top_ids
 
+        top_col_for_tt=[]
+        bottom_col_for_tt=[]
+        top_index_for_tt=[]
+        bottom_index_for_tt=[]
+        print('tt graph shape',self.df_3.shape)
+
+
+        for t in range(int(len(self.df_3[self.df_3.columns[0]]))):
+
+            # if t in tweet_newid.keys() and self.df_3[self.df_3.columns[1]][index] in tweet_newid.keys():
+            if t%10000 == 0:
+                print('current index:',t)
+            try:
+                key1 = self.df_3[self.df_3.columns[0]][t]
+                key2 = self.df_3[self.df_3.columns[1]][t]
+                tweet_newid[key1] and tweet_newid[key2]
+
+                top_col_for_tt.append(key1)
+                bottom_col_for_tt.append(key2)
+
+                top_index_for_tt.append(tweet_newid[key1])
+                bottom_index_for_tt.append(tweet_newid[key2])
+            except:
+                continue
+
+        assert len(top_index_for_tt) == len(bottom_index_for_tt)
+
+        # top_index_for_tt = [tweet_newid[t] for t in self.df_3[self.df_3.columns[0]]] # creat a list of same tweet ids from the bottom_ids
+        # bottom_index_for_tt = [tweet_newid[t] for t in self.df_3[self.df_3.columns[1]]] # creat a list of same tweet ids from the bottom_ids
+
+        self.df_2['top_index']=top_index_for_uu
         self.df_2['bottom_index']=bottom_index_for_uu
+
+        # self.df_3['top_index'] = top_index_for_tt
+        # self.df_3['bottom_index'] = bottom_index_for_tt
+        # self.df_3['bottom_index_2']=bottom_index_for_tt
+        self.df_3 = pd.DataFrame({'tweet':top_col_for_tt,'to_tweet':bottom_col_for_tt,'top_index':top_index_for_tt,'bottom_index':bottom_index_for_tt})
+
+
         self.df_2=self.df_2.append(pd.DataFrame([[user_number,user_number,user_number-1,user_number-1]],columns=['user','to_user','top_index','bottom_index'])) # append a fake row to make sure that Wh shape in U*U
+        self.df_3=self.df_3.append(pd.DataFrame([[tweet_number,tweet_number,tweet_number-1,tweet_number-1]],columns=['tweet','to_tweet','top_index','bottom_index'])) # append a fake row to make sure that Wht shape in T*T
         # print(self.df_2)
         print("df_2 column name after reindex:",self.df_2.columns)
+        print("df_3 column name after reindex:",self.df_3.columns)
 
 
     def _generate_adj_new(self):
@@ -378,7 +448,7 @@ class BipartiteNetwork:
         self.W = spa.coo_matrix(
             (
                 weight,
-                (self.df['top_index'].values, self.df['bottom_index'].values)
+                (self.df['top_index'].values, self.df['bottom_index'].values) # ut graph weight
             )
         )
         if self.weight_col_2 is None:
@@ -389,9 +459,16 @@ class BipartiteNetwork:
         self.W_2 = spa.coo_matrix(
             (
                 weight_2,
-                (self.df_2['top_index'].values, self.df_2['bottom_index'].values)
+                (self.df_2['top_index'].values, self.df_2['bottom_index'].values) # uu graph weight
             )
         )
+
+        if self.weight_col_3 is None:
+            weight_3 = np.ones(len(self.df_3))
+        else:
+            weight_3 = self.df_3[self.weight_col_3]
+        self.W_3 = spa.coo_matrix((weight_3,(self.df_3['top_index'].values,self.df_3['bottom_index'].values))) # tt graph weight
+
     def _index_nodes(self):
         """
         Representing the network with adjacency matrix requires indexing the top
@@ -476,12 +553,16 @@ class BipartiteNetwork:
         bottom_df = bottom_df.to_frame(name='degree').reset_index()
         return top_df, bottom_df
 
-    def generate_birank_new(self, **kwargs):
+    def generate_birank_new(self,merge_tt, **kwargs):
         """
         This method performs BiRank algorithm on the bipartite network and
         returns the ranking values for both the top nodes and bottom nodes.
         """
-        d, p = birank_new(self.W,self.W_2, **kwargs)
+        if merge_tt:
+            print('merge tt')
+            d, p = birank_new(self.W,self.W_2,self.W_3,**kwargs)
+        else:
+            d, p = birank_new(self.W,self.W_2,**kwargs)
         top_df = self.top_ids.copy()
         bottom_df = self.bottom_ids.copy()
         top_df[self.top_col + '_birank'] = d
