@@ -1,0 +1,7 @@
+
+
+topk: 0.3643122676579926 recommendataion user: 0.02
+topk: 0.04556962025316456 recommendataion tweet: 0.02
+spearmanr user corr and p: (0.6647740360906748, 0.0)
+spearmanr tweet corr and p:(0.15615315074280853, 0.0)
+

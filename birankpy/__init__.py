@@ -5,7 +5,7 @@ import scipy
 import scipy.sparse as spa
 
 
-def pagerank(adj, d=0.85, max_iter=500, tol=1.0e-4, verbose=True):
+def pagerank(adj, d=0.85, max_iter=500, tol=1.0e-4, verbose=False):
     """
     Return the PageRank of the nodes in a graph using power iteration.
     This funciton takes the sparse matrix as input directly, avoiding the overheads
@@ -42,7 +42,7 @@ def pagerank(adj, d=0.85, max_iter=500, tol=1.0e-4, verbose=True):
 
     return x
 
-def birank_new(Wg,Wh,Wht=None, alpha=0.3,delta=0.3, beta=0.4, gamma=0.4, max_iter=500, tol=1.0e-5, verbose=True):
+def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5, verbose=False):
     """
     Calculate the PageRank of bipartite networks directly.
     See paper https://ieeexplore.ieee.org/abstract/document/7572089/
@@ -61,7 +61,13 @@ def birank_new(Wg,Wh,Wht=None, alpha=0.3,delta=0.3, beta=0.4, gamma=0.4, max_ite
     Output:
          d, p::numpy.ndarray:The BiRank for rows and columns
     """
+    alpha=args.alpha
+    delta=args.delta
+    beta=args.beta
+    gamma=args.gamma
+
     print("Wg shape:",Wg.shape,"Wh shape:",Wh.shape)
+
 
     Wg = Wg.astype('float', copy=False) # in shape U*T, U is the user number, T is the tweet number
     Wh = Wh.astype('float', copy=False) # in shape U*U, U is the user number
@@ -123,6 +129,7 @@ def birank_new(Wg,Wh,Wht=None, alpha=0.3,delta=0.3, beta=0.4, gamma=0.4, max_ite
     for i in range(max_iter):
 
         if Wht ==None:
+            alpha = 0.85
             p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
         else:
             p = alpha * (SgT.dot(d_last)) + delta*Sht*p_last + (1-alpha-delta) * p0
@@ -151,7 +158,7 @@ def birank_new(Wg,Wh,Wht=None, alpha=0.3,delta=0.3, beta=0.4, gamma=0.4, max_ite
     return d, p
 
 def birank(W, normalizer='HITS',
-    alpha=0.85, beta=0.85, max_iter=500, tol=1.0e-4, verbose=True):
+    alpha=0.85, beta=0.85, max_iter=500, tol=1.0e-4, verbose=False):
     """
     Calculate the PageRank of bipartite networks directly.
     See paper https://ieeexplore.ieee.org/abstract/document/7572089/
@@ -341,9 +348,9 @@ class BipartiteNetwork:
         bottom nodes. An optional column can carry the edge weight.
         You need to specify the columns in the method parameters.
         """
-        self.df = df
-        self.df_2 = df_2 # for user to user connection
-        self.df_3 = df_3 # for
+        self.df = df # for user to item graph
+        self.df_2 = df_2 # for user to user graph
+        self.df_3 = df_3 # for item to item graph
         self.top_col = top_col
         self.bottom_col = bottom_col
         self.weight_col = weight_col
@@ -392,13 +399,13 @@ class BipartiteNetwork:
         bottom_col_for_tt=[]
         top_index_for_tt=[]
         bottom_index_for_tt=[]
-        print('tt graph shape',self.df_3.shape)
+        # print('tt graph shape',self.df_3.shape)
 
 
         for t in range(int(len(self.df_3[self.df_3.columns[0]]))):
 
             # if t in tweet_newid.keys() and self.df_3[self.df_3.columns[1]][index] in tweet_newid.keys():
-            if t%10000 == 0:
+            if t%1000000 == 0:
                 print('current index:',t)
             try:
                 key1 = self.df_3[self.df_3.columns[0]][t]
@@ -553,16 +560,16 @@ class BipartiteNetwork:
         bottom_df = bottom_df.to_frame(name='degree').reset_index()
         return top_df, bottom_df
 
-    def generate_birank_new(self,merge_tt, **kwargs):
+    def generate_birank_new(self,args, **kwargs):
         """
         This method performs BiRank algorithm on the bipartite network and
         returns the ranking values for both the top nodes and bottom nodes.
         """
-        if merge_tt:
+        if args.merge_tt:
             print('merge tt')
-            d, p = birank_new(self.W,self.W_2,self.W_3,**kwargs)
+            d, p = birank_new(args,self.W,self.W_2,self.W_3,**kwargs)
         else:
-            d, p = birank_new(self.W,self.W_2,**kwargs)
+            d, p = birank_new(args,self.W,self.W_2,**kwargs)
         top_df = self.top_ids.copy()
         bottom_df = self.bottom_ids.copy()
         top_df[self.top_col + '_birank'] = d
