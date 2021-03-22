@@ -1,5 +1,5 @@
 #! /bin/bash
-declare -a dataset=("gossipcop_fake" "gossipcop_real" "politifact_fake" "politifact_real")
+declare -a dataset=("gossipcop_fake" "gossipcop_real" "politifact_fake" "politifact_real" "Aminer")
 
 declare -a methods=("proposed" "HITS" "CoHITS" "BGRM" "BiRank")
 

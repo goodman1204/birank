@@ -1,7 +1,6 @@
-
-
-topk: 0.7759351391192187 recommendataion user: 0.1
-topk: 0.16883116883116883 recommendataion tweet: 0.1
+alpha: 0.425 delta: 0.425 beta: 0.425 gamma: 0.425 topk: 0.01
+topk: 0.01 recommendataion user: 0.45571955719557194
+topk: 0.01 recommendataion tweet: 0.009621993127147767
 spearmanr user corr and p: (0.7626017426318907, 0.0)
-spearmanr tweet corr and p:(0.14848974818391045, 0.0)
+spearmanr tweet corr and p: (0.14848974818391045, 0.0)
 

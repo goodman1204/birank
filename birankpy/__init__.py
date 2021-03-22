@@ -125,7 +125,7 @@ def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5, verbose=False):
     p_last = p0.copy()
 
     print("p shape:",p_last.shape,"d shape:",d_last.shape)
-    print('initial value \n p[0:10]',p_last[0:10],'\n d[0:10]',d_last[0:10])
+    print('initial value \n p[0:10]\n',p_last[0:10],'\n d[0:10]\n',d_last[0:10])
     for i in range(max_iter):
 
         if Wht ==None:

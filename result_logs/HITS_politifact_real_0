@@ -1,0 +1,6 @@
+alpha: 0.425 delta: 0.425 beta: 0.425 gamma: 0.425 topk: 0.01
+topk: 0.01 recommendataion user: 0.03002450980392157
+topk: 0.01 recommendataion tweet: 0.0013561160835367507
+spearmanr user corr and p: (0.3137923538671169, 0.0)
+spearmanr tweet corr and p: (0.10979776247290055, 0.0)
+

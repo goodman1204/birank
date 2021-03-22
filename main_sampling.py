@@ -53,7 +53,9 @@ def topk_computing(ground_truth_user,ground_truth_tweet,user_birank_df,tweet_bir
 def calclulate_spearman(a,b,type,result_values):
     corr, p=  stats.spearmanr(a,b)
     print('{} spearmanr coefficient:'.format(type),corr,p)
-    result_values.append((corr,p))
+    result_values.append(corr)
+    # result_values.append(p)
+
     return result_values
 
 def parse_args():
@@ -70,9 +72,10 @@ def parse_args():
     parser.add_argument('--delta', type=float, default=0.425, help='delta')
     parser.add_argument('--beta', type=float, default=0.425, help='beta')
     parser.add_argument('--gamma', type=float, default=0.425, help='gamma')
-    parser.add_argument('--merge_tt', type=int, default=1, help='merge item-item graph.')
+    parser.add_argument('--merge_tt', type=int, default=1, help='merge item-item graph')
     parser.add_argument('--sampling_uu',type=int, default=0,help='if sampling uu graph is required')
     parser.add_argument('--sampling_tt',type=int, default=0,help='if sampling tt graph is required')
+    parser.add_argument('--num_run',type=int, default=1,help='repeat experiments')
     args, unknown = parser.parse_known_args()
 
     return args
@@ -87,6 +90,42 @@ def save_results(args,results):
     wp.write("spearmanr tweet corr and p: {}\n".format(results[3]))
     wp.write("\n")
     wp.close()
+
+
+def save_sampling_results(args,overall_results):
+
+    wp = open('./result_logs/{}_{}_{}_sampinguu_{}_samplingtt_{}'.format(args.model,args.dataset,args.merge_tt,args.sampling_uu,args.sampling_tt),'a')
+
+    new_data = np.array(overall_results)
+
+    new_data = np.mean(new_data,axis=1).T
+
+    wp.write("\n\ntopk:{} alpha:{} delta:{} beta:{} gamma:{}\n".format(args.topk,args.alpha,args.delta,args.beta,args.gamma))
+
+    print("data shape:",new_data.shape)
+    wp.write("topk user\n")
+    for sampling_rate in range(0,21):
+        wp.write("{} ".format(new_data[0][sampling_rate]))
+    wp.write('\n')
+
+    wp.write("topk tweet\n")
+    for sampling_rate in range(0,21):
+        wp.write("{} ".format(new_data[1][sampling_rate]))
+    wp.write('\n')
+
+    wp.write("spearmanr user\n")
+    for sampling_rate in range(0,21):
+        wp.write("{} ".format(new_data[2][sampling_rate]))
+    wp.write('\n')
+
+    wp.write("spearmanr tweet\n")
+    for sampling_rate in range(0,21):
+        wp.write("{} ".format(new_data[3][sampling_rate]))
+    wp.write('\n')
+
+    wp.close()
+
+
 
 if __name__ == '__main__':
     args = parse_args()
@@ -130,53 +169,95 @@ if __name__ == '__main__':
     print('user-user graph shape',uu.shape)
     print('item-item graph shape',tt.shape)
 
+
     bn = birankpy.BipartiteNetwork()
 
-    if args.model =='proposed':
-        bn.set_edgelist_two_types(
-            ut,
-            uu,
-            tt,
-            top_col=columns_ut[0], bottom_col=columns_ut[1],
-            weight_col=None,
-            weight_col_2=None,
-            weight_col_3=None
-        )
 
-        user_birank_df, tweet_birank_df = bn.generate_birank_new(args)
 
-        user_birank_df.sort_values(by=bn.top_col+'_birank', ascending=False,inplace=True)
-        tweet_birank_df.sort_values(by=bn.bottom_col+'_birank', ascending=False,inplace=True)
-        print(user_birank_df.head(5))
-        print(tweet_birank_df.head(5))
-    else:
-        bn.set_edgelist(
-            ut,
-            top_col=columns_ut[0], bottom_col=columns_ut[1],
-            weight_col=None,
-        )
-        user_birank_df, tweet_birank_df = bn.generate_birank(normalizer=args.model)
-        user_birank_df.sort_values(by=bn.top_col+'_birank', ascending=False,inplace=True)
-        tweet_birank_df.sort_values(by=bn.bottom_col+'_birank', ascending=False,inplace=True)
+    if args.sampling_uu or args.sampling_tt ==1:
 
-        print(user_birank_df.head(5))
-        print(tweet_birank_df.head(5))
+        overall_results=[]
+        for sampling_rate in range(0,21):
 
-    result_values = []
-    topk_computing(ground_truth_user,ground_truth_tweet,user_birank_df,tweet_birank_df,result_values)
+            sampling_rate /=20
 
-    #merge ground truth and predicted
-    user_merged = pd.merge(ground_truth_user[ground_truth_user['num_followers']>=0],user_birank_df,on='user')
-    tweet_merged = pd.merge(ground_truth_tweet[ground_truth_tweet['num_favorites_retweets']>=0],tweet_birank_df,on='tweet')
+            print("sampling rate",sampling_rate)
 
-    # print(user_merged.head(5))
-    # print(tweet_merged.head(5))
-    calclulate_spearman(user_merged['num_followers'],user_merged['user_birank'],'user',result_values)
+            uu_temp = uu
+            if args.sampling_uu==1 and sampling_rate>0:
+                uu_temp = uu.sample(frac=sampling_rate)
+                print("uu shape after sampling:",uu_temp.shape)
 
-    calclulate_spearman(tweet_merged['num_favorites_retweets'],tweet_merged['tweet_birank'],'tweet',result_values)
+                args.gamma=0.425
+                args.beta = 0.425
+                args.alpha = 0.85
+                args.delta = 0
 
-    # save_results(args,result_values)
+            if args.sampling_uu==1 and sampling_rate==0:
+                args.gamma=0
+                args.beta = 0.85
+                args.alpha = 0.85
+                args.delta = 0
 
+            tt_temp = tt
+            if args.sampling_tt == 1 and sampling_rate>0:
+                tt_temp = tt.sample(frac=sampling_rate)
+                print("tt shape after sampling:",tt_temp.shape)
+
+                args.gamma=0.0
+                args.beta = 0.85
+                args.alpha = 0.425
+                args.delta = 0.425
+
+            if args.sampling_tt == 1 and sampling_rate==0:
+                args.gamma = 0
+                args.delta = 0
+                args.alpha = 0.85
+                args.beta = 0.85
+
+            total_results_per_sampling=[]
+
+            for run in range(args.num_run):
+
+                result_values = []
+
+                if args.model =='proposed':
+                    bn.set_edgelist_two_types(
+                        ut,
+                        uu_temp,
+                        tt_temp,
+                        top_col=columns_ut[0], bottom_col=columns_ut[1],
+                        weight_col=None,
+                        weight_col_2=None,
+                        weight_col_3=None
+                    )
+
+                    user_birank_df, tweet_birank_df = bn.generate_birank_new(args)
+
+
+                    user_birank_df.sort_values(by=bn.top_col+'_birank', ascending=False,inplace=True)
+                    tweet_birank_df.sort_values(by=bn.bottom_col+'_birank', ascending=False,inplace=True)
+                    # print(user_birank_df.head(5))
+                    # print(tweet_birank_df.head(5))
+
+                topk_computing(ground_truth_user,ground_truth_tweet,user_birank_df,tweet_birank_df,result_values)
+
+                #merge ground truth and predicted
+                user_merged = pd.merge(ground_truth_user[ground_truth_user['num_followers']>=0],user_birank_df,on='user')
+                tweet_merged = pd.merge(ground_truth_tweet[ground_truth_tweet['num_favorites_retweets']>=0],tweet_birank_df,on='tweet')
+
+                # print(user_merged.head(5))
+                # print(tweet_merged.head(5))
+                calclulate_spearman(user_merged['num_followers'],user_merged['user_birank'],'user',result_values)
+
+                calclulate_spearman(tweet_merged['num_favorites_retweets'],tweet_merged['tweet_birank'],'tweet',result_values)
+
+                # save_results(args,result_values)
+                total_results_per_sampling.append(result_values)
+
+            overall_results.append(total_results_per_sampling)
+
+        save_sampling_results(args,overall_results)
 
 
 
