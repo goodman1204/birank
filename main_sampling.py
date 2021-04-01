@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
             uu_temp = uu
             if args.sampling_uu==1 and sampling_rate>0:
-                uu_temp = uu.sample(frac=sampling_rate)
+                uu_temp = uu.sample(frac=sampling_rate) # pandas dataframe has the sampling function
                 print("uu shape after sampling:",uu_temp.shape)
 
                 args.gamma=0.425
