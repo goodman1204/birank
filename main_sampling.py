@@ -76,6 +76,8 @@ def parse_args():
     parser.add_argument('--sampling_uu',type=int, default=0,help='if sampling uu graph is required')
     parser.add_argument('--sampling_tt',type=int, default=0,help='if sampling tt graph is required')
     parser.add_argument('--num_run',type=int, default=1,help='repeat experiments')
+    parser.add_argument('--verbose',type=bool, default=False,help='detailed output logs')
+
     args, unknown = parser.parse_known_args()
 
     return args

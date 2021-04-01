@@ -42,7 +42,7 @@ def pagerank(adj, d=0.85, max_iter=500, tol=1.0e-4, verbose=False):
 
     return x
 
-def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5, verbose=False):
+def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5):
     """
     Calculate the PageRank of bipartite networks directly.
     See paper https://ieeexplore.ieee.org/abstract/document/7572089/
@@ -108,11 +108,11 @@ def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5, verbose=False):
     Kuu_bi = spa.diags(1/scipy.sqrt(Kuu)) # in shape U*U
 
     Sg = Kut_bi.dot(Wg).dot(Ktt_bi)
-    np.save('Sg.npy',Sg)
+    # np.save('Sg.npy',Sg)
     SgT = Sg.T
 
     Sh = Kut_bi.dot(Wh).dot(Kut_bi)
-    np.save('Sh.npy',Sh)
+    # np.save('Sh.npy',Sh)
 
     if Wht !=None:
         Sht = Kttt_bi.dot(Wht).dot(Kttt_bi)
@@ -142,9 +142,10 @@ def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5, verbose=False):
 
         err_p = np.absolute(p - p_last).sum()
         err_d = np.absolute(d - d_last).sum()
-        if verbose:
+        if args.verbose:
             # print('p[0:10]',p[0:10],'\n d[0:10]',d[0:10])
             # print('p0[0:10]',p0[0:10],'\n d0[0:10]',d0[0:10])
+            print('alpha:{} delta:{} beta:{} gamma:{}'.format(alpha,delta,beta,gamma))
             print(
                 "Iteration : {}; top error: {}; bottom error: {}".format(
                     i, err_d, err_p
