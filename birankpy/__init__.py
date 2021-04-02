@@ -128,8 +128,9 @@ def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5):
     print('initial value \n p[0:10]\n',p_last[0:10],'\n d[0:10]\n',d_last[0:10])
     for i in range(max_iter):
 
+        iteration = i+1
         if Wht ==None:
-            alpha = 0.85
+            # alpha = 0.85
             p = alpha * (SgT.dot(d_last)) + (1-alpha) * p0
         else:
             p = alpha * (SgT.dot(d_last)) + delta*Sht*p_last + (1-alpha-delta) * p0
@@ -148,7 +149,7 @@ def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5):
             print('alpha:{} delta:{} beta:{} gamma:{}'.format(alpha,delta,beta,gamma))
             print(
                 "Iteration : {}; top error: {}; bottom error: {}".format(
-                    i, err_d, err_p
+                    i+1, err_d, err_p
                 )
             )
         if err_p < tol and err_d < tol:
@@ -156,7 +157,7 @@ def birank_new(args,Wg,Wh,Wht=None, max_iter=500, tol=1.0e-5):
         d_last = d
         p_last = p
 
-    return d, p
+    return d, p, iteration
 
 def birank(W, normalizer='HITS',
     alpha=0.85, beta=0.85, max_iter=500, tol=1.0e-4, verbose=False):
@@ -568,16 +569,18 @@ class BipartiteNetwork:
         """
         if args.merge_tt:
             print('merge tt')
-            d, p = birank_new(args,self.W,self.W_2,self.W_3,**kwargs)
+            d, p,iteration = birank_new(args,self.W,self.W_2,self.W_3,**kwargs)
         else:
-            d, p = birank_new(args,self.W,self.W_2,**kwargs)
+            d, p,iteration = birank_new(args,self.W,self.W_2,**kwargs)
+
         top_df = self.top_ids.copy()
         bottom_df = self.bottom_ids.copy()
         top_df[self.top_col + '_birank'] = d
         bottom_df[self.bottom_col + '_birank'] = p
         return (
             top_df[[self.top_col, self.top_col + '_birank']],
-            bottom_df[[self.bottom_col, self.bottom_col + '_birank']]
+            bottom_df[[self.bottom_col, self.bottom_col + '_birank']],
+            iteration
         )
     def generate_birank(self, **kwargs):
         """
