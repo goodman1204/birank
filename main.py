@@ -145,7 +145,7 @@ if __name__ == '__main__':
             weight_col_3=None
         )
 
-        user_birank_df, tweet_birank_df = bn.generate_birank_new(args)
+        user_birank_df, tweet_birank_df,iteration = bn.generate_birank_new(args)
 
         user_birank_df.sort_values(by=bn.top_col+'_birank', ascending=False,inplace=True)
         tweet_birank_df.sort_values(by=bn.bottom_col+'_birank', ascending=False,inplace=True)
@@ -168,9 +168,11 @@ if __name__ == '__main__':
     topk_computing(ground_truth_user,ground_truth_tweet,user_birank_df,tweet_birank_df,result_values)
 
     #merge ground truth and predicted
-    user_merged = pd.merge(ground_truth_user[ground_truth_user['num_followers']>=0],user_birank_df,on='user')
-    tweet_merged = pd.merge(ground_truth_tweet[ground_truth_tweet['num_favorites_retweets']>=0],tweet_birank_df,on='tweet')
+    # user_merged = pd.merge(ground_truth_user[ground_truth_user['num_followers']>=0],user_birank_df,on='user')
+    # tweet_merged = pd.merge(ground_truth_tweet[ground_truth_tweet['num_favorites_retweets']>=0],tweet_birank_df,on='tweet')
 
+    user_merged = pd.merge(user_birank_df,ground_truth_user[ground_truth_user['num_followers']>=0],on='user')
+    tweet_merged = pd.merge(tweet_birank_df,ground_truth_tweet[ground_truth_tweet['num_favorites_retweets']>=0],on='tweet')
     # print(user_merged.head(5))
     # print(tweet_merged.head(5))
     calclulate_spearman(user_merged['num_followers'],user_merged['user_birank'],'user',result_values)
